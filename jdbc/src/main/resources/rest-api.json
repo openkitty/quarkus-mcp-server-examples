@@ -1,0 +1,86 @@
+{
+  "name": "Data REST API",
+  "description": "REST API used by DataAgent for data query and modification",
+  "endpoints": [
+    {
+      "name": "list_records",
+      "method": "GET",
+      "path": "records",
+      "description": "Get all records",
+      "operation": "read",
+      "path_params": [],
+      "query_params": [],
+      "body": null
+    },
+    {
+      "name": "get_record",
+      "method": "GET",
+      "path": "records/{id}",
+      "description": "Get one record by ID",
+      "operation": "read",
+      "path_params": [
+        {
+          "name": "id",
+          "description": "Record ID",
+          "required": true
+        }
+      ],
+      "query_params": [],
+      "body": null
+    },
+    {
+      "name": "create_record",
+      "method": "POST",
+      "path": "records",
+      "description": "Create a new record",
+      "operation": "write",
+      "path_params": [],
+      "query_params": [],
+      "body": {
+        "description": "Record data to create",
+        "example": {
+          "id": 456,
+          "name": "new-record",
+          "status": "active"
+        }
+      }
+    },
+    {
+      "name": "update_record",
+      "method": "PATCH",
+      "path": "records/{id}",
+      "description": "Update fields of an existing record",
+      "operation": "write",
+      "path_params": [
+        {
+          "name": "id",
+          "description": "Record ID",
+          "required": true
+        }
+      ],
+      "query_params": [],
+      "body": {
+        "description": "Fields to update",
+        "example": {
+          "status": "inactive"
+        }
+      }
+    },
+    {
+      "name": "delete_record",
+      "method": "DELETE",
+      "path": "records/{id}",
+      "description": "Delete an existing record",
+      "operation": "write",
+      "path_params": [
+        {
+          "name": "id",
+          "description": "Record ID",
+          "required": true
+        }
+      ],
+      "query_params": [],
+      "body": null
+    }
+  ]
+}
