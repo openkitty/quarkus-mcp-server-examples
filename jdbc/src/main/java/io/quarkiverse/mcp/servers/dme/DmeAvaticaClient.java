@@ -99,7 +99,8 @@ public class DmeAvaticaClient {
 
             if (LOG.isDebugEnabled()) {
                 LOG.debugf(
-                        "[DME SQL] Read query succeeded. row_count=%d, result=%s",
+                        "[DME SQL] Read query succeeded. sql=%s, row_count=%d, result=%s",
+			sql,
                         rows.size(),
                         response);
             }
