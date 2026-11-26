@@ -5,6 +5,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,14 +38,9 @@ public class DmeAvaticaClient {
                 "httpclient_impl",
                 AvaticaHttpClient.class.getName());
 
-        String timeout = getEnvOrDefault(
-                "DME_JDBC_TIMEOUT_MS",
-                "300000");
-
         info.setProperty("username", username);
         info.setProperty("password", password);
         info.setProperty("ip", host);
-        info.setProperty("timeout", "300000");
 
         String jdbcUrl = "jdbc:avatica:remote:url=https://"
                 + host
@@ -59,9 +55,14 @@ public class DmeAvaticaClient {
         }
         validateSql(sql);
 
+        String timeout = getEnvOrDefault("DME_JDBC_TIMEOUT_S", "120");
+        String fetchSize = getEnvOrDefault("DME_JDBC_FETCH_SIZE", "1000");
+
         try (Connection conn = getConnection();
-                PreparedStatement stmt = conn.prepareStatement(sql);
-                ResultSet rs = stmt.executeQuery()) {
+             Statement stmt = conn.createStatement()) {
+            stmt.setQueryTimeout(Integer.parseInt(timeout));
+            stmt.setFetchSize(Integer.parseInt(fetchSize));
+            ResultSet rs = stmt.executeQuery(sql);
 
             ResultSetMetaData metaData = rs.getMetaData();
             int columnCount = metaData.getColumnCount();
@@ -100,7 +101,7 @@ public class DmeAvaticaClient {
             if (LOG.isDebugEnabled()) {
                 LOG.debugf(
                         "[DME SQL] Read query succeeded. sql=%s, row_count=%d, result=%s",
-			sql,
+                        sql,
                         rows.size(),
                         response);
             }
