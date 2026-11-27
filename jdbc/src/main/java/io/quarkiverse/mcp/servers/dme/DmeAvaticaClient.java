@@ -23,10 +23,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class DmeAvaticaClient {
 
     private static final Logger LOG = Logger.getLogger(DmeAvaticaClient.class);
+    private static final int MAX_DME_TIMEOUT_SECONDS = 300;
+    private static final int WRITE_QUERY_TIMEOUT_MS = 300_000;
     @Inject
     ObjectMapper mapper;
 
-    private Connection getConnection() throws Exception {
+    private Connection getConnection(int timeoutMs) throws Exception {
         String host = requireEnv("DME_JDBC_HOST");
         String username = requireEnv("DME_JDBC_USERNAME");
         String password = requireEnv("DME_JDBC_PASSWORD");
@@ -41,6 +43,7 @@ public class DmeAvaticaClient {
         info.setProperty("username", username);
         info.setProperty("password", password);
         info.setProperty("ip", host);
+        info.setProperty("timeout", Integer.toString(timeoutMs));
 
         String jdbcUrl = "jdbc:avatica:remote:url=https://"
                 + host
@@ -55,12 +58,15 @@ public class DmeAvaticaClient {
         }
         validateSql(sql);
 
-        String timeout = getEnvOrDefault("DME_JDBC_TIMEOUT_S", "120");
+        int timeoutSeconds = Integer.parseInt(getEnvOrDefault("DME_JDBC_TIMEOUT_S", "120"));
+        if (timeoutSeconds < 1 || timeoutSeconds > MAX_DME_TIMEOUT_SECONDS) {
+            throw new IllegalArgumentException(
+                    "DME_JDBC_TIMEOUT_S must be between 1 and " + MAX_DME_TIMEOUT_SECONDS);
+        }
         String fetchSize = getEnvOrDefault("DME_JDBC_FETCH_SIZE", "1000");
 
-        try (Connection conn = getConnection();
+        try (Connection conn = getConnection(timeoutSeconds * 1000);
              Statement stmt = conn.createStatement()) {
-            stmt.setQueryTimeout(Integer.parseInt(timeout));
             stmt.setFetchSize(Integer.parseInt(fetchSize));
             ResultSet rs = stmt.executeQuery(sql);
 
@@ -128,7 +134,7 @@ public class DmeAvaticaClient {
                     "SELECT queries are not allowed for writeQuery");
         }
 
-        try (Connection conn = getConnection();
+        try (Connection conn = getConnection(WRITE_QUERY_TIMEOUT_MS);
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             int affectedRows = stmt.executeUpdate();
