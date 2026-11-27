@@ -2,16 +2,18 @@ package io.quarkiverse.mcp.servers.dme;
 
 import java.util.List;
 
+import org.apache.calcite.avatica.AvaticaClientRuntimeException;
+import org.apache.calcite.avatica.AvaticaSqlException;
+import org.jboss.logging.Logger;
+
 import jakarta.inject.Inject;
 
-import org.apache.calcite.avatica.AvaticaSqlException;
-
-import io.quarkiverse.mcp.server.JsonRpcErrorCodes;
 import io.quarkiverse.mcp.server.McpException;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 
 public class MCPServerDME {
+    private static final Logger LOG = Logger.getLogger(MCPServerDME.class);
 
     @Inject
     DmeApiClient dmeApiClient;
@@ -151,32 +153,34 @@ public class MCPServerDME {
 
         try {
             return dmeAvaticaClient.readQuery(query);
-        } catch (RuntimeException e) {
-            Throwable cause = e;
-
-            while (cause != null) {
-                if (cause instanceof AvaticaSqlException avaticaException) {
-
-                    if (avaticaException.getErrorCode() == 400) {
-                        var exceptions = avaticaException.getStackTraces();
-
-                        if (exceptions != null && !exceptions.isEmpty()) {
-                            String message = exceptions.get(exceptions.size() - 1);
-
-                            throw new McpException(
-                                    message,
-                                    JsonRpcErrorCodes.INTERNAL_ERROR);
-                        }
-                    }
-
-                    break;
+        } catch (RuntimeException error) {
+            for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+                if (cause instanceof AvaticaSqlException dmeError) {
+                    LOG.errorf(error, "Unable to call tool dme_read_query: %s", error);
+                    throw new McpException(formatReadError(dmeError), error, -32603);
                 }
-
-                cause = cause.getCause();
             }
-
-            throw e;
+            throw error;
         }
+    }
+
+    private static String formatReadError(AvaticaSqlException error) {
+        StringBuilder message = new StringBuilder(error.getMessage());
+        if (error.getCause() instanceof AvaticaClientRuntimeException remote) {
+            String remoteMessage = remote.getMessage();
+            if (remoteMessage != null && !remoteMessage.isBlank() && !error.getMessage().contains(remoteMessage)) {
+                message.append('\n').append(remoteMessage);
+            }
+        }
+        List<String> details = error.getStackTraces();
+        if (details != null) {
+            for (String detail : details) {
+                if (detail != null && !detail.isBlank()) {
+                    message.append('\n').append(detail);
+                }
+            }
+        }
+        return message.toString();
     }
 
     @Tool(description = "Execute an INSERT, UPDATE or DELETE SQL statement against Huawei iMaster DME "
